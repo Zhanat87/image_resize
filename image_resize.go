@@ -1,8 +1,5 @@
 package main
 
-/*
-export GOPATH=/home/forge/dev.balu.io/scripts/golang
- */
 import(
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -29,6 +26,7 @@ import(
 	"crypto/tls"
 	"gopkg.in/gomail.v2"
 	"strconv"
+	"os/user"
 )
 
 type ResizeMessage struct {
@@ -164,7 +162,12 @@ func getWidthBySize(size string) (int) {
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		f, errorOpenFile := os.OpenFile("storage/logs/go_lang.log", os.O_APPEND | os.O_CREATE | os.O_RDWR, 0666)
+		usr, er := user.Current()
+		if er != nil {
+			panic(er)
+		}
+		f, errorOpenFile := os.OpenFile(usr.HomeDir + "/" + os.Getenv("APP_DIR") + "/storage/logs/go_lang.log",
+			os.O_APPEND | os.O_CREATE | os.O_RDWR, 0666)
 		if errorOpenFile != nil {
 			fmt.Printf("error opening file: %v", errorOpenFile)
 		}
