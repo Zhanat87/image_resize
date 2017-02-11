@@ -6,27 +6,22 @@ import(
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/joho/godotenv"
+	"github.com/disintegration/imaging"
+	"github.com/streadway/amqp"
+	"gopkg.in/gomail.v2"
+
 	"bytes"
 	"net/http"
 	"os"
-
-	"github.com/disintegration/imaging"
 	"runtime"
-
-	"github.com/streadway/amqp"
 	"log"
-
 	"fmt"
 	"encoding/json"
 	"strings"
-
-	"github.com/joho/godotenv"
 	"os/user"
-
 	"crypto/tls"
-	"gopkg.in/gomail.v2"
 	"strconv"
-	"os/user"
 )
 
 type ResizeMessage struct {
@@ -56,6 +51,8 @@ func main() {
 	)
 	failOnError(err, "Failed consume to queue")
 
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	for msg := range msgs {
 		res := ResizeMessage{}
 		json.Unmarshal(msg.Body, &res)
@@ -71,10 +68,6 @@ func resizeAndCopy(resizeMessage ResizeMessage, size string) {
 }
 
 func resizeImage(resizeMessage ResizeMessage, size string) {
-	fmt.Printf("dst: " + resizeMessage.Dst + size + ".jpg\nsrc: " + resizeMessage.Src + "\nsize: " + size + "\n\n")
-
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	srcImage, err := imaging.Open(resizeMessage.Src)
 	if err != nil {
 		failOnError(err, "Failed load original image")
@@ -118,10 +111,10 @@ func copyToS3Storage(dstImage string) {
 		ContentLength: aws.Int64(size),
 		ContentType: aws.String(fileType),
 	}
-	resp, err := svc.PutObject(params)
-	//_, err = svc.PutObject(params)
+	//resp, err := svc.PutObject(params)
+	_, err = svc.PutObject(params)
 	failOnError(err, fmt.Sprintf("bad response: %s", err))
-	fmt.Printf("response %s", awsutil.StringValue(resp))
+	//fmt.Printf("response %s", awsutil.StringValue(resp))
 }
 
 func getQueue() (*amqp.Connection, *amqp.Channel, *amqp.Queue) {
@@ -162,14 +155,15 @@ func getWidthBySize(size string) (int) {
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		usr, er := user.Current()
-		if er != nil {
-			panic(er)
+		usr, errorGetCurrentUser := user.Current()
+		if errorGetCurrentUser != nil {
+			sendErrorEmail(fmt.Sprintf("failed get current user: %s", errorGetCurrentUser))
+			panic(errorGetCurrentUser)
 		}
 		f, errorOpenFile := os.OpenFile(usr.HomeDir + "/" + os.Getenv("APP_DIR") + "/storage/logs/go_lang.log",
 			os.O_APPEND | os.O_CREATE | os.O_RDWR, 0666)
 		if errorOpenFile != nil {
-			fmt.Printf("error opening file: %v", errorOpenFile)
+			sendErrorEmail(fmt.Sprintf("error opening file: %v", errorOpenFile))
 		}
 		defer f.Close()
 
@@ -183,9 +177,9 @@ func failOnError(err error, msg string) {
 func sendErrorEmail(msg string) {
 	m := gomail.NewMessage()
 	m.SetHeader("From", os.Getenv("MAIL_FROM_ADDRESS"), os.Getenv("MAIL_FROM_NAME"))
-	m.SetHeader("To", "iskakov_zhanat@mail.ru")
+	m.SetHeader("To", os.Getenv("MAIL_TO_ADDRESS_FOR_GO_LANG"))
 	m.SetHeader("Subject", "balu: go lang image resize error!")
-	m.SetBody("text/html", "<div style='background-color: aqua;'>" + msg + "</div>")
+	m.SetBody("text/plain", msg)
 
 	mailPort, err := strconv.Atoi(os.Getenv("MAIL_PORT"))
 	if err != nil {
