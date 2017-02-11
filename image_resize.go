@@ -1,5 +1,16 @@
-package image_resize
+package main
 
+/*
+go get -u "github.com/aws/aws-sdk-go/aws"
+go get -u "github.com/aws/aws-sdk-go/aws/awsutil"
+go get -u "github.com/aws/aws-sdk-go/aws/credentials"
+go get -u "github.com/aws/aws-sdk-go/service/s3"
+go get -u "github.com/aws/aws-sdk-go/aws/session"
+go get -u "github.com/disintegration/imaging"
+go get -u "github.com/streadway/amqp"
+go get -u "github.com/joho/godotenv"
+go get -u "gopkg.in/gomail.v2"
+ */
 import(
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
